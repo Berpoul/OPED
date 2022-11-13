@@ -52,7 +52,7 @@ dependencies:
 
   flutter_countdown_timer: ^4.1.0
 
-  #flutter_blue: 0.6.3+1
+  flutter_blue: ^0.8.0
 
 dev_dependencies:
   flutter_test:

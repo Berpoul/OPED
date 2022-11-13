@@ -1,4 +1,7 @@
+import 'dart:ffi';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_blue/gen/flutterblue.pbserver.dart';
 import 'package:flutter_countdown_timer/index.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -6,6 +9,10 @@ import 'package:syncfusion_flutter_calendar/calendar.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_countdown_timer/countdown.dart';
+import 'package:flutter_blue/flutter_blue.dart' as fb;
+import 'DevicesList.dart';
+
+import 'dart:convert' show utf8;
 
 void main() {
   runApp(const MyApp());
@@ -21,15 +28,6 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'Flutter Demo',
       theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // Try running your application with "flutter run". You'll see the
-        // application has a blue toolbar. Then, without quitting the app, try
-        // changing the primarySwatch below to Colors.green and then invoke
-        // "hot reload" (press "r" in the console where you ran "flutter run",
-        // or simply save your changes to "hot reload" in a Flutter IDE).
-        // Notice that the counter didn't reset back to zero; the application
-        // is not restarted.
         primarySwatch: Colors.blue,
       ),
       //home: CalendarWidget(),
@@ -40,13 +38,16 @@ class MyApp extends StatelessWidget {
 }
 
 class MenuPrincipal extends StatefulWidget {
-  const MenuPrincipal({super.key});
+  MenuPrincipal({super.key});
 
   @override
   State<MenuPrincipal> createState() => _MenuPrincipalState();
 }
 
 class _MenuPrincipalState extends State<MenuPrincipal> {
+  List<fb.BluetoothDevice> _connectedDevice = <fb.BluetoothDevice>[];
+  List<fb.BluetoothService> services = <fb.BluetoothService>[];
+  bool connected = false;
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -83,10 +84,18 @@ class _MenuPrincipalState extends State<MenuPrincipal> {
                       backgroundColor: Colors.black,
                       heroTag: 'bouton1',
                       onPressed: () {
-                        Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                                builder: (context) => CalendarWidget()));
+                        if (connected == true) {
+                          Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                  builder: (context) => CalendarWidget()));
+                        } else {
+                          showDialog(
+                              context: context,
+                              builder: ((context) => const AlertDialog(
+                                  content: Text(
+                                      'You should connect to a device first.'))));
+                        }
                       }),
                 ),
                 Positioned(
@@ -97,10 +106,52 @@ class _MenuPrincipalState extends State<MenuPrincipal> {
                     backgroundColor: Colors.black,
                     heroTag: 'bouton2',
                     onPressed: () {
-                      Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (context) => ModeManuel()));
+                      if (connected == true) {
+                        Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (context) => ModeManuel(
+                                    device: _connectedDevice,
+                                    services: services)));
+                      } else {
+                        showDialog(
+                            context: context,
+                            builder: ((context) => const AlertDialog(
+                                content: Text(
+                                    'You should connect to a device first.'))));
+                      }
+                    },
+                  ),
+                ),
+                Positioned(
+                  left: 107,
+                  bottom: 200,
+                  child: FloatingActionButton.extended(
+                    label: Text('Connect to your device'),
+                    backgroundColor: Colors.black,
+                    heroTag: 'bouton3',
+                    onPressed: () async {
+                      if (connected == false) {
+                        final results = await Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (context) =>
+                                    MyHomePage(title: "oui oui baguette !")));
+                        if (results != null) {
+                          connected = true;
+                          services = await results.discoverServices();
+
+                          setState(() {
+                            _connectedDevice.add(results);
+                          });
+                        }
+                      } else {
+                        if (_connectedDevice.length != 0) {
+                          _connectedDevice[0].disconnect();
+                          _connectedDevice.clear();
+                          connected = false;
+                        }
+                      }
                     },
                   ),
                 )
@@ -110,7 +161,10 @@ class _MenuPrincipalState extends State<MenuPrincipal> {
 }
 
 class ModeManuel extends StatefulWidget {
-  const ModeManuel({super.key});
+  @override
+  List<fb.BluetoothDevice> device = <fb.BluetoothDevice>[];
+  List<fb.BluetoothService> services = <fb.BluetoothService>[];
+  ModeManuel({super.key, required this.device, required this.services});
 
   @override
   State<ModeManuel> createState() => _ModeManuelState();
@@ -134,14 +188,28 @@ class _ModeManuelState extends State<ModeManuel> {
   Duration selectedValue = Duration(hours: 0, minutes: 0, seconds: 0);
   late CountdownTimerController controller;
 
+  final fb.FlutterBlue flutterBlue = fb.FlutterBlue.instance;
+  List<fb.BluetoothDevice> device = <fb.BluetoothDevice>[];
+  List<fb.BluetoothService> services = <fb.BluetoothService>[];
+  TimeOfDay fin =
+      TimeOfDay(hour: DateTime.now().hour + 5, minute: DateTime.now().minute);
+  int compteur = 0;
+  bool envoi = false;
+  Duration diff = Duration();
+
   @override
   void initState() {
     super.initState();
-
+    device = widget.device;
+    services = widget.services;
     controller = CountdownTimerController(endTime: endTime);
   }
 
   Widget build(BuildContext context) {
+    if (device != null && services != null) {
+      //debugPrint(device[0].name);
+    }
+
     return Container(
         width: MediaQuery.of(context).size.width,
         child: MaterialApp(
@@ -195,12 +263,12 @@ class _ModeManuelState extends State<ModeManuel> {
                           style: TextStyle(fontSize: 35),
                         ),
                         onTap: () async {
+                          /*_startTime = TimeOfDay(
+                              hour: DateTime.now().hour,
+                              minute: DateTime.now().minute);*/
                           var time = await showTimePicker(
-                              context: context,
-                              initialTime: TimeOfDay(
-                                  hour: _startTime.hour,
-                                  minute: _startTime.minute));
-                          if (time != null && time != _startTime) {
+                              context: context, initialTime: _startTime);
+                          if (time != null) {
                             setState(() {
                               _startTime = time;
 
@@ -211,12 +279,12 @@ class _ModeManuelState extends State<ModeManuel> {
                                 _startTime.hour,
                                 _startTime.minute,
                               );
-                              //final Duration diff =
-                              //    DateTime.now().difference(_startDate);
+                              final Duration diff =
+                                  DateTime.now().difference(_startDate);
                               //_startDate = DateTime.now().add(diff);
                             });
                           }
-                          //Duration diff = _startDate.difference(DateTime.now());
+                          diff = _startDate.difference(DateTime.now());
                         }),
                     SizedBox(height: 100),
                     Text(
@@ -250,6 +318,23 @@ class _ModeManuelState extends State<ModeManuel> {
                                 .inMilliseconds,
                           );
                         });
+                        //compteur++;
+                        compteur = diff.inMilliseconds * 10;
+                        compteur += rating;
+                        for (fb.BluetoothService s in services) {
+                          for (fb.BluetoothCharacteristic c
+                              in s.characteristics) {
+                            if (c.properties.write) {
+                              c.write(utf8.encode(compteur.toString()));
+                              debugPrint(diff.inMilliseconds.toString());
+                              debugPrint(compteur.toString());
+                              //Future.delayed(const Duration(milliseconds: 300));
+
+                              //c.write(
+                              //    utf8.encode(diff.inMilliseconds.toString()));
+                            }
+                          }
+                        }
                       },
                       label: Text('LANCER'),
                       backgroundColor: Colors.black87,
