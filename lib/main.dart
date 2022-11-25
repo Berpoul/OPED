@@ -88,7 +88,9 @@ class _MenuPrincipalState extends State<MenuPrincipal> {
                           Navigator.push(
                               context,
                               MaterialPageRoute(
-                                  builder: (context) => CalendarWidget()));
+                                  builder: (context) => CalendarWidget(
+                                      device: _connectedDevice,
+                                      services: services)));
                         } else {
                           showDialog(
                               context: context,
@@ -173,13 +175,14 @@ class ModeManuel extends StatefulWidget {
 class _ModeManuelState extends State<ModeManuel> {
   @override
   int rating = 0;
-  List<String> values = ['Très faible', 'Faible', 'Moyen', 'Fort', 'Très fort'];
-  List<String> liste = [
-    'Peppermint',
-    'Lavande',
-    'Fleur d\'orange',
-    'Max détente'
+  List<String> values = [
+    'Very Weak',
+    'Weak',
+    'Medium',
+    'Strong',
+    'Very Strong'
   ];
+  List<String> liste = ['Peppermint', 'Lavender', 'Orange', 'Lemon'];
   late var dropdownValue = liste.first;
   var _startTime =
       TimeOfDay(hour: DateTime.now().hour, minute: DateTime.now().minute);
@@ -257,15 +260,12 @@ class _ModeManuelState extends State<ModeManuel> {
                     SizedBox(height: 100),
                     GestureDetector(
                         child: Text(
-                          'Heure de fin :\n' +
+                          'Ending Time :\n' +
                               DateFormat('HH:mm').format(_startDate),
                           textAlign: TextAlign.center,
                           style: TextStyle(fontSize: 35),
                         ),
                         onTap: () async {
-                          /*_startTime = TimeOfDay(
-                              hour: DateTime.now().hour,
-                              minute: DateTime.now().minute);*/
                           var time = await showTimePicker(
                               context: context, initialTime: _startTime);
                           if (time != null) {
@@ -281,7 +281,6 @@ class _ModeManuelState extends State<ModeManuel> {
                               );
                               final Duration diff =
                                   DateTime.now().difference(_startDate);
-                              //_startDate = DateTime.now().add(diff);
                             });
                           }
                           diff = _startDate.difference(DateTime.now());
@@ -318,25 +317,21 @@ class _ModeManuelState extends State<ModeManuel> {
                                 .inMilliseconds,
                           );
                         });
-                        //compteur++;
+
                         compteur = diff.inMilliseconds * 10;
                         compteur += rating;
                         for (fb.BluetoothService s in services) {
                           for (fb.BluetoothCharacteristic c
                               in s.characteristics) {
                             if (c.properties.write) {
-                              c.write(utf8.encode(compteur.toString()));
+                              c.write(utf8.encode("2" + compteur.toString()));
                               debugPrint(diff.inMilliseconds.toString());
                               debugPrint(compteur.toString());
-                              //Future.delayed(const Duration(milliseconds: 300));
-
-                              //c.write(
-                              //    utf8.encode(diff.inMilliseconds.toString()));
                             }
                           }
                         }
                       },
-                      label: Text('LANCER'),
+                      label: Text('START'),
                       backgroundColor: Colors.black87,
                     ),
                   ],
@@ -363,6 +358,11 @@ CountdownTimer lancement(controller, DateTime _endDate) {
 class CalendarWidget extends StatelessWidget {
   final _controller = CalendarController();
   final _events = DataSource(<Appointment>[]);
+  List<fb.BluetoothDevice> device = <fb.BluetoothDevice>[];
+  List<fb.BluetoothService> services = <fb.BluetoothService>[];
+  CalendarWidget({super.key, required this.device, required this.services});
+  List<String> strength = <String>[];
+  String envoiBT = "1";
 
   @override
   Widget build(BuildContext context) {
@@ -385,35 +385,47 @@ class CalendarWidget extends StatelessWidget {
           floatingActionButton: Stack(
             children: [
               Positioned(
-                right: 30,
+                right: 54,
                 bottom: 20,
-                child: FloatingActionButton(
+                child: FloatingActionButton.extended(
                     backgroundColor: Colors.black,
                     heroTag: 'bouton1',
-                    child: const Text('+'),
+                    label: const Text('+'),
                     onPressed: () {
                       _secondPage(BuildContext context, Widget page) async {
                         final dataFromSecondPage = await Navigator.push(
                             context,
                             MaterialPageRoute(
                               builder: ((context) => page),
-                            )) as Appointment;
-                        _events.appointments!.add(dataFromSecondPage);
-                        _events.notifyListeners(CalendarDataSourceAction.add,
-                            <Appointment>[dataFromSecondPage]);
+                            )) /*as Appointment*/;
+                        if (dataFromSecondPage != null) {
+                          _events.appointments!.add(dataFromSecondPage.event);
+                          _events.notifyListeners(CalendarDataSourceAction.add,
+                              <Appointment>[dataFromSecondPage.event]);
+                          strength = dataFromSecondPage.strength;
+                        }
+
+                        if (strength.length > 0 && strength[0] != null) {
+                          debugPrint(strength.length.toString());
+                        }
+
                         //}
                       }
 
-                      _secondPage(context, SecondRoute());
+                      _secondPage(
+                          context,
+                          SecondRoute(
+                            strength: strength,
+                          ));
                     }),
               ),
               Positioned(
-                left: 70,
+                left: 118,
                 bottom: 20,
-                child: FloatingActionButton(
+                child: FloatingActionButton.extended(
                   backgroundColor: Colors.black,
                   heroTag: 'bouton2',
-                  child: Text('-'),
+                  label: Text('-'),
                   onPressed: () {
                     if (_selectedAppointment != null) {
                       _events.appointments!.removeAt(
@@ -422,6 +434,49 @@ class CalendarWidget extends StatelessWidget {
                           <Appointment>[]..add(_selectedAppointment));
                     } else {
                       print('bite');
+                    }
+                  },
+                ),
+              ),
+              Positioned(
+                //width: MediaQuery.of(context).size.width,
+                left: 165,
+                bottom: 20,
+                child: FloatingActionButton.extended(
+                  backgroundColor: Colors.black,
+                  heroTag: 'bouton3',
+                  label: Text("Synchronize"),
+                  onPressed: () {
+                    if (envoiBT != "1") {
+                      envoiBT = "1";
+                    }
+                    if (strength.length > 0 &&
+                        strength[0] != null &&
+                        _events.appointments!.length > 0 &&
+                        _events.appointments![0] != null) {
+                      for (int i = 0; i < _events.appointments!.length; i++) {
+                        envoiBT += _events.appointments![i].startTime
+                            .difference(DateTime.now())
+                            .inMilliseconds
+                            .toString();
+                        envoiBT += '.';
+
+                        envoiBT += _events.appointments![i].endTime
+                            .difference(_events.appointments![i].startTime)
+                            .inMilliseconds
+                            .toString();
+                        envoiBT += '.';
+
+                        envoiBT += strength[i] + ';';
+                      }
+                    }
+                    for (fb.BluetoothService s in services) {
+                      for (fb.BluetoothCharacteristic c in s.characteristics) {
+                        if (c.properties.write) {
+                          c.write(utf8.encode(envoiBT));
+                          debugPrint(envoiBT);
+                        }
+                      }
                     }
                   },
                 ),
@@ -468,8 +523,12 @@ class CalendarWidget extends StatelessWidget {
           body: SfCalendar(
             selectionDecoration:
                 BoxDecoration(border: Border.all(color: Colors.black)),
-            view: CalendarView.week,
-            showDatePickerButton: true,
+            view: CalendarView.day,
+            minDate: DateTime(
+                DateTime.now().year, DateTime.now().month, DateTime.now().day),
+            maxDate: DateTime(DateTime.now().year, DateTime.now().month,
+                DateTime.now().day, 23, 59, 59),
+            showDatePickerButton: false,
             controller: _controller,
             dataSource: _events,
             todayHighlightColor: Colors.black,
@@ -511,8 +570,20 @@ DataSource _getCalendarDataSource() {
 }
 
 class SecondRoute extends StatefulWidget {
+  List<String> strength = <String>[];
+  SecondRoute({super.key, required this.strength});
   @override
   _SecondRouteState createState() => _SecondRouteState();
+}
+
+class PassageInfos {
+  List<String> strength = <String>[];
+  Appointment event =
+      Appointment(startTime: DateTime.now(), endTime: DateTime.now());
+
+  PassageInfos(List<String> strength) {
+    this.strength = strength;
+  }
 }
 
 class _SecondRouteState extends State<SecondRoute> {
@@ -535,12 +606,7 @@ class _SecondRouteState extends State<SecondRoute> {
     minute: DateTime.now().minute,
   );
 
-  List<String> liste = <String>[
-    'Peppermint',
-    'Lavande',
-    'Fleur d\'orange',
-    'Max détente'
-  ];
+  List<String> liste = <String>['Peppermint', 'Lavender', 'Orange', 'Lemon'];
 
   List<Color> listeCouleurs = <Color>[
     Colors.green,
@@ -551,15 +617,101 @@ class _SecondRouteState extends State<SecondRoute> {
   late String dropdownValue = liste.first;
   var _selectedColorIndex = 0;
   int rating = 0;
-  List<String> values = ['Très faible', 'Faible', 'Moyen', 'Fort', 'Très fort'];
+  List<String> values = [
+    'Very Weak',
+    'Weak',
+    'Medium',
+    'Strong',
+    'Very Strong'
+  ];
+  String smell = "";
+  PassageInfos passage = new PassageInfos(<String>[]);
+  @override
+  void initState() {
+    passage = PassageInfos(widget.strength);
+  }
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
         debugShowCheckedModeBanner: false,
         home: Scaffold(
             appBar: AppBar(
-                title: const Text('New event'),
                 backgroundColor: Colors.black,
+                title: Row(
+                  children: <Widget>[
+                    IconButton(
+                      padding: const EdgeInsets.fromLTRB(5, 0, 60, 0),
+                      icon: const Icon(
+                        Icons.arrow_back_ios_new_rounded,
+                        color: Colors.white,
+                      ),
+                      onPressed: () {
+                        Navigator.pop(context);
+                      },
+                    ),
+                    const Text(
+                      'Adding a new event',
+                      textAlign: TextAlign.center,
+                    ),
+                    IconButton(
+                      padding: const EdgeInsets.fromLTRB(60, 0, 5, 0),
+                      icon: const Icon(
+                        Icons.done,
+                        color: Colors.white,
+                      ),
+                      onPressed: () {
+                        String libele = dropdownValue;
+                        Color couleur = Colors.blue;
+                        if (libele == 'Peppermint') {
+                          couleur = Colors.green;
+                          smell = "0";
+                        }
+                        if (libele == 'Lavender') {
+                          couleur = Colors.purple;
+                          smell = "1";
+                        }
+                        if (libele == 'Orange') {
+                          couleur = Colors.orange;
+                          smell = "2";
+                        }
+                        if (libele == 'Lemon') {
+                          couleur = Colors.yellow;
+                          smell = "3";
+                        }
+
+                        DateTime start = DateTime(
+                          _startDate.year,
+                          _startDate.month,
+                          _startDate.day,
+                          _startTime.hour,
+                          _startTime.minute,
+                        );
+
+                        DateTime end = DateTime(
+                          _endDate.year,
+                          _endDate.month,
+                          _endDate.day,
+                          _endTime.hour,
+                          _endTime.minute,
+                        );
+
+                        passage.event = Appointment(
+                            startTime: start,
+                            endTime: end,
+                            subject:
+                                '$_subject \nSmell : $libele\nStrength : ' +
+                                    values[rating].toString(),
+                            color: couleur);
+
+                        passage.strength.add(rating.toString());
+
+                        Navigator.pop(context, passage);
+                      },
+                    )
+                  ],
+                )
+
                 /*eading: IconButton(
                   icon: const Icon(
                     Icons.close,
@@ -570,7 +722,17 @@ class _SecondRouteState extends State<SecondRoute> {
                   },
                 ),*/
 
-                actions: <Widget>[
+                /*actions: <Widget>[
+                  IconButton(
+                    padding: const EdgeInsets.fromLTRB(5, 0, 5, 0),
+                    icon: const Icon(
+                      Icons.arrow_back_ios_new_rounded,
+                      color: Colors.white,
+                    ),
+                    onPressed: () {
+                      Navigator.pop(context);
+                    },
+                  ),
                   IconButton(
                     padding: const EdgeInsets.fromLTRB(5, 0, 5, 0),
                     icon: const Icon(
@@ -612,13 +774,14 @@ class _SecondRouteState extends State<SecondRoute> {
                       Navigator.pop(context, nouvoSlot);
                     },
                   )
-                ]),
+                ]*/
+                ),
             body: Container(
               //color: Colors.white,
               child:
                   ListView(padding: const EdgeInsets.all(0), children: <Widget>[
                 ListTile(
-                  contentPadding: const EdgeInsets.fromLTRB(5, 0, 5, 5),
+                  contentPadding: const EdgeInsets.fromLTRB(45, 0, 99, 0),
                   leading: const Text(''),
                   title: TextField(
                     controller: TextEditingController(text: _subject),
@@ -627,6 +790,7 @@ class _SecondRouteState extends State<SecondRoute> {
                     },
                     keyboardType: TextInputType.multiline,
                     maxLines: null,
+                    textAlign: TextAlign.center,
                     style: TextStyle(
                         fontSize: 25,
                         color: Colors.black,
@@ -642,6 +806,12 @@ class _SecondRouteState extends State<SecondRoute> {
                   thickness: 1,
                 ),
                 SizedBox(height: 50),
+                Text(
+                  "Starting time :",
+                  style: TextStyle(
+                      fontSize: 30, decoration: TextDecoration.underline),
+                  textAlign: TextAlign.center,
+                ),
                 /*ListTile(
                     contentPadding: const EdgeInsets.fromLTRB(5, 2, 5, 2),
                     leading: Icon(
@@ -667,45 +837,49 @@ class _SecondRouteState extends State<SecondRoute> {
                       ],
                     )),*/
                 ListTile(
-                    contentPadding: const EdgeInsets.fromLTRB(5, 2, 85, 2),
+                    contentPadding: const EdgeInsets.fromLTRB(30, 2, 85, 2),
                     leading: const Text(''),
                     title: Row(
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: <Widget>[
                           Expanded(
-                            flex: 7,
-                            child: GestureDetector(
-                                child: Text(
-                                    DateFormat('EEE, MMM dd yyyy')
-                                        .format(_startDate),
-                                    textAlign: TextAlign.center),
-                                onTap: () async {
-                                  var date = await showDatePicker(
-                                    context: context,
-                                    initialDate: _startDate,
-                                    firstDate: DateTime(1900),
-                                    lastDate: DateTime(2100),
-                                  );
-                                  if (date != null && date != _startDate) {
-                                    setState(() {
-                                      final Duration difference =
-                                          _endDate.difference(_startDate);
-                                      _startDate = DateTime(
-                                          date.year,
-                                          date.month,
-                                          date.day,
-                                          _startTime.hour,
-                                          _startTime.minute,
-                                          0);
-                                      _endDate = _startDate.add(difference);
-                                      _endTime = TimeOfDay(
-                                          hour: _endDate.hour,
-                                          minute: _endDate.minute);
-                                    });
-                                  }
-                                }),
-                          ),
-                          Expanded(
+                              flex: 7,
+                              child: _isAllDay
+                                  ? const Text('')
+                                  : GestureDetector(
+                                      child: Text(
+                                          DateFormat('HH:mm')
+                                              .format(_startDate),
+                                          textAlign: TextAlign.center,
+                                          style: TextStyle(fontSize: 50)),
+                                      onTap: () async {
+                                        var time = await showTimePicker(
+                                            context: context,
+                                            initialTime: TimeOfDay(
+                                                hour: _startTime.hour,
+                                                minute: _startTime.minute));
+                                        if (time != null &&
+                                            time != _startTime) {
+                                          setState(() {
+                                            _startTime = time;
+                                            final Duration difference =
+                                                _endDate.difference(_startDate);
+                                            _startDate = DateTime(
+                                                _startDate.year,
+                                                _startDate.month,
+                                                _startDate.day,
+                                                _startTime.hour,
+                                                _startTime.minute,
+                                                0);
+                                            /*_endDate =
+                                                _startDate.add(difference);*/
+                                            _endTime = TimeOfDay(
+                                                hour: _endDate.hour,
+                                                minute: _endDate.minute);
+                                          });
+                                        }
+                                      })),
+                          /*Expanded(
                               flex: 3,
                               child: _isAllDay
                                   ? const Text('')
@@ -741,51 +915,59 @@ class _SecondRouteState extends State<SecondRoute> {
                                                 minute: _endDate.minute);
                                           });
                                         }
-                                      }))
+                                      }))*/
                         ])),
                 SizedBox(height: 25),
+                Text(
+                  "Ending time :",
+                  style: TextStyle(
+                      fontSize: 30, decoration: TextDecoration.underline),
+                  textAlign: TextAlign.center,
+                ),
                 ListTile(
-                    contentPadding: const EdgeInsets.fromLTRB(5, 2, 85, 2),
+                    contentPadding: const EdgeInsets.fromLTRB(30, 2, 85, 2),
                     leading: const Text(''),
                     title: Row(
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: <Widget>[
                           Expanded(
-                            flex: 7,
-                            child: GestureDetector(
-                                child: Text(
-                                    DateFormat('EEE, MMM dd yyyy')
-                                        .format(_endDate),
-                                    textAlign: TextAlign.center),
-                                onTap: () async {
-                                  var date = await showDatePicker(
-                                    context: context,
-                                    initialDate: _endDate,
-                                    firstDate: DateTime(1900),
-                                    lastDate: DateTime(2100),
-                                  );
-                                  if (date != null && date != _endDate) {
-                                    setState(() {
-                                      final Duration difference =
-                                          _endDate.difference(_startDate);
-                                      _endDate = DateTime(
-                                          date.year,
-                                          date.month,
-                                          date.day,
-                                          _endTime.hour,
-                                          _endTime.minute,
-                                          0);
-                                      if (_endDate.isBefore(_startDate)) {
-                                        _startDate.subtract(difference);
-                                        _startTime = TimeOfDay(
-                                            hour: _endDate.hour,
-                                            minute: _endDate.minute);
-                                      }
-                                    });
-                                  }
-                                }),
-                          ),
-                          Expanded(
+                              flex: 7,
+                              child: _isAllDay
+                                  ? const Text('')
+                                  : GestureDetector(
+                                      child: Text(
+                                          DateFormat('HH:mm').format(_endDate),
+                                          textAlign: TextAlign.center,
+                                          style: TextStyle(fontSize: 50)),
+                                      onTap: () async {
+                                        var time = await showTimePicker(
+                                            context: context,
+                                            initialTime: TimeOfDay(
+                                                hour: _endTime.hour,
+                                                minute: _endTime.minute));
+                                        if (time != null && time != _endTime) {
+                                          setState(() {
+                                            _endTime = time;
+                                            final Duration difference =
+                                                _endDate.difference(_startDate);
+                                            _endDate = DateTime(
+                                                _endDate.year,
+                                                _endDate.month,
+                                                _endDate.day,
+                                                _endTime.hour,
+                                                _endTime.minute,
+                                                0);
+                                            if (_endDate.isBefore(_startDate)) {
+                                              _startDate =
+                                                  _endDate.subtract(difference);
+                                              /*_startTime = TimeOfDay(
+                                                  hour: _startDate.hour,
+                                                  minute: _startDate.minute);*/
+                                            }
+                                          });
+                                        }
+                                      })),
+                          /*Expanded(
                               flex: 3,
                               child: _isAllDay
                                   ? const Text('')
@@ -821,33 +1003,45 @@ class _SecondRouteState extends State<SecondRoute> {
                                             }
                                           });
                                         }
-                                      }))
+                                      }))*/
                         ])),
-                SizedBox(height: 100),
-                ListTile(
-                  contentPadding: const EdgeInsets.fromLTRB(85, 2, 5, 2),
-                  leading: DropdownButton<String>(
-                    items: liste.map<DropdownMenuItem<String>>((String value) {
-                      return DropdownMenuItem<String>(
-                        value: value,
-                        child: Text(value),
-                      );
-                    }).toList(),
-                    onChanged: (String? value) {
-                      setState(() {
-                        dropdownValue = value!;
-                      });
-                    },
-                    value: dropdownValue,
-                    elevation: 16,
-                    style: const TextStyle(fontSize: 28, color: Colors.black),
-                    underline: Container(
-                      height: 2,
-                      color: Colors.black,
-                    ),
-                  ),
+                SizedBox(height: 35),
+                Text(
+                  "Smell : ",
+                  style: TextStyle(
+                      fontSize: 30, decoration: TextDecoration.underline),
+                  textAlign: TextAlign.center,
                 ),
-                SizedBox(height: 100),
+                ListTile(
+                  contentPadding: const EdgeInsets.fromLTRB(100, 2, 5, 2),
+                  leading: DropdownButton<String>(
+                      items:
+                          liste.map<DropdownMenuItem<String>>((String value) {
+                        return DropdownMenuItem<String>(
+                          value: value,
+                          child: Text(value),
+                        );
+                      }).toList(),
+                      onChanged: (String? value) {
+                        setState(() {
+                          dropdownValue = value!;
+                        });
+                      },
+                      value: dropdownValue,
+                      elevation: 16,
+                      style: const TextStyle(fontSize: 28, color: Colors.black),
+                      underline: SizedBox()),
+                ),
+                SizedBox(height: 50),
+                Text(
+                  "Strength :",
+                  style: TextStyle(
+                      fontSize: 30, decoration: TextDecoration.underline),
+                  textAlign: TextAlign.center,
+                ),
+                SizedBox(
+                  height: 20,
+                ),
                 Text(
                   values[rating],
                   style: CupertinoTheme.of(context)

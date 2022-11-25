@@ -40,7 +40,8 @@ class _MyHomePageState extends State<MyHomePage> {
   List<BluetoothDevice> _connectedDevice = <BluetoothDevice>[];
   final _writeController = TextEditingController();
   _addDeviceTolist(final BluetoothDevice device) {
-    if (!widget.devicesList.contains(device)) {
+    if (!widget.devicesList.contains(device) &&
+        device.name == "Your OPED Device") {
       setState(() {
         widget.devicesList.add(device);
       });
@@ -188,7 +189,7 @@ class _MyHomePageState extends State<MyHomePage> {
   @override
   Widget build(BuildContext context) => Scaffold(
         appBar: AppBar(
-          title: Text("belle bito"),
+          title: Text("Select your device"),
         ),
         body: _buildView(null, null),
       );
