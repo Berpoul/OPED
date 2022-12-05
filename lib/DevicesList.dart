@@ -86,7 +86,7 @@ class _MyHomePageState extends State<MyHomePage> {
                 ),
               ),
               TextButton(
-                  style: TextButton.styleFrom(backgroundColor: Colors.blue),
+                  style: TextButton.styleFrom(backgroundColor: Colors.black),
                   child: Text(
                     'Connect',
                     style: TextStyle(color: Colors.white),
@@ -123,41 +123,12 @@ class _MyHomePageState extends State<MyHomePage> {
                       if (device != null) {
                         debugPrint("miam");
                       }
-
+                      widget.flutterBlue.stopScan();
                       Navigator.pop(context);
                       Navigator.pop(context, device);
                       debugPrint("blmiam");
-                      //MenuPrincipal();
-
-                      /*Navigator.pop(
-                          context,
-                          MaterialPageRoute(
-                              builder: ((context) =>
-                                  MyHomePage(title: "zboui"))));*/
-
-                      /*await showDialog(
-                          context: context,
-                          builder: ((context) => AlertDialog(
-                                title: Text('Write'),
-                                content: Row(
-                                    children: (<Widget>[
-                                  Expanded(
-                                      child: TextField(
-                                    controller: _writeController,
-                                  ))
-                                ])),
-                                actions: <Widget>[
-                                  TextButton(
-                                      child: Text("Send"),
-                                      onPressed: () {
-                                        
-                                        /*chars.write(
-                                            utf8.encode(_writeController.text));
-                                        Navigator.pop(context);*/
-                                      })
-                                ],
-                              )));*/
                     } else {
+                      debugPrint("ok ça a déco bg");
                       device.disconnect();
                       _connectedDevice.clear();
                       showDialog(
@@ -190,6 +161,7 @@ class _MyHomePageState extends State<MyHomePage> {
   Widget build(BuildContext context) => Scaffold(
         appBar: AppBar(
           title: Text("Select your device"),
+          backgroundColor: Colors.black,
         ),
         body: _buildView(null, null),
       );

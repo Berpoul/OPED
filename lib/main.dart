@@ -11,6 +11,9 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter_countdown_timer/countdown.dart';
 import 'package:flutter_blue/flutter_blue.dart' as fb;
 import 'DevicesList.dart';
+import 'package:path_provider/path_provider.dart';
+import 'dart:io';
+import 'dart:convert';
 
 import 'dart:convert' show utf8;
 
@@ -90,7 +93,8 @@ class _MenuPrincipalState extends State<MenuPrincipal> {
                               MaterialPageRoute(
                                   builder: (context) => CalendarWidget(
                                       device: _connectedDevice,
-                                      services: services)));
+                                      services: services,
+                                      events: DataSource(<Appointment>[]))));
                         } else {
                           showDialog(
                               context: context,
@@ -152,6 +156,10 @@ class _MenuPrincipalState extends State<MenuPrincipal> {
                           _connectedDevice[0].disconnect();
                           _connectedDevice.clear();
                           connected = false;
+                          showDialog(
+                              context: context,
+                              builder: ((context) => const AlertDialog(
+                                  content: Text('Déconnecté'))));
                         }
                       }
                     },
@@ -355,14 +363,42 @@ CountdownTimer lancement(controller, DateTime _endDate) {
   );
 }
 
+_write(String text) async {
+  final Directory directory = await getApplicationDocumentsDirectory();
+  final File file = File('${directory.path}/my_file.txt');
+  await file.delete();
+  await file.writeAsString(text);
+}
+
+Future<String> _read() async {
+  String txt = "";
+  try {
+    final Directory directory = await getApplicationDocumentsDirectory();
+    final File file = File('${directory.path}/my_file.txt');
+    txt = await file.readAsString();
+  } catch (e) {
+    print("Couldn't read file");
+  }
+  return txt;
+}
+
 class CalendarWidget extends StatelessWidget {
   final _controller = CalendarController();
-  final _events = DataSource(<Appointment>[]);
+  var events = DataSource(<Appointment>[]);
   List<fb.BluetoothDevice> device = <fb.BluetoothDevice>[];
   List<fb.BluetoothService> services = <fb.BluetoothService>[];
-  CalendarWidget({super.key, required this.device, required this.services});
+  CalendarWidget(
+      {super.key,
+      required this.device,
+      required this.services,
+      required this.events});
   List<String> strength = <String>[];
   String envoiBT = "1";
+  String writeFile = "";
+  late Directory directory;
+  late String filePath;
+
+  //final File file = File(path.toString() + '.to/my_file.txt');
 
   @override
   Widget build(BuildContext context) {
@@ -370,18 +406,112 @@ class CalendarWidget extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       home: Scaffold(
           appBar: AppBar(
-              title: Text('Calendar Programmation'),
               backgroundColor: Colors.black,
-              leading: IconButton(
-                padding: const EdgeInsets.fromLTRB(5, 0, 5, 0),
-                icon: const Icon(
-                  Icons.arrow_back_ios_new_rounded,
-                  color: Colors.white,
+              title: Row(children: <Widget>[
+                IconButton(
+                  padding: const EdgeInsets.fromLTRB(5, 0, 30, 0),
+                  icon: const Icon(
+                    Icons.arrow_back_ios_new_rounded,
+                    color: Colors.white,
+                  ),
+                  onPressed: () {
+                    Navigator.pop(context);
+                  },
                 ),
-                onPressed: () {
-                  Navigator.pop(context);
-                },
-              )),
+                const Text(
+                  'Calendar Programmation',
+                  textAlign: TextAlign.center,
+                ),
+                IconButton(
+                    padding: const EdgeInsets.fromLTRB(30, 0, 5, 0),
+                    icon: const Icon(
+                      Icons.download,
+                      color: Colors.white,
+                    ),
+                    onPressed: () async {
+                      List<Appointment> ds = <Appointment>[];
+                      String data = await _read();
+                      DateTime start = DateTime.now();
+                      DateTime end = DateTime.now();
+                      strength = <String>[];
+                      String subject = "";
+                      String value = "";
+                      bool tdone = false;
+                      Color couleur = Colors.black;
+                      int y = 1;
+                      for (int i = 0; i < data.length; i++) {
+                        if (data[i] != "." && data[i] != ";") {
+                          if (y == 1 || y == 2) {
+                            /*if (data[i] == ":") {
+                            value += "T";
+                          } else*/
+                            if (data[i] == " " && tdone == false) {
+                              value += "T";
+                              tdone = true;
+                            } else if (data[i] == " " && tdone == true) {
+                            } else if (data[i] == "–") {
+                            } else {
+                              value += data[i];
+                            }
+                          } else {
+                            value += data[i];
+                          }
+                        }
+                        if (data[i] == ".") {
+                          switch (y) {
+                            case 1:
+                              {
+                                start = DateTime.parse(value);
+                              }
+                              break;
+                            case 2:
+                              {
+                                end = DateTime.parse(value);
+                              }
+                              break;
+                            case 3:
+                              {
+                                strength.add(value);
+                              }
+                              break;
+                          }
+                          value = "";
+                          y += 1;
+                          tdone = false;
+                        }
+                        if (data[i] == ";") {
+                          subject = value;
+                          if (value.contains("Peppermint")) {
+                            couleur = Colors.green;
+                          } else if (subject.contains("Lavender")) {
+                            couleur = Colors.purple;
+                          } else if (subject.contains("Orange")) {
+                            couleur = Colors.orange;
+                          } else if (subject.contains("Lemon")) {
+                            couleur = Colors.yellow;
+                          }
+
+                          value = "";
+                          y = 1;
+
+                          Appointment z = Appointment(
+                              startTime: start,
+                              endTime: end,
+                              subject: subject,
+                              color: couleur);
+                          ds.add(z);
+                        }
+                      }
+                      events = DataSource(ds);
+                      Navigator.pushReplacement(
+                          context,
+                          MaterialPageRoute(
+                              builder: (BuildContext context) => CalendarWidget(
+                                  device: device,
+                                  services: services,
+                                  events: events)));
+                    }),
+              ])),
           floatingActionButton: Stack(
             children: [
               Positioned(
@@ -399,8 +529,8 @@ class CalendarWidget extends StatelessWidget {
                               builder: ((context) => page),
                             )) /*as Appointment*/;
                         if (dataFromSecondPage != null) {
-                          _events.appointments!.add(dataFromSecondPage.event);
-                          _events.notifyListeners(CalendarDataSourceAction.add,
+                          events.appointments!.add(dataFromSecondPage.event);
+                          events.notifyListeners(CalendarDataSourceAction.add,
                               <Appointment>[dataFromSecondPage.event]);
                           strength = dataFromSecondPage.strength;
                         }
@@ -428,9 +558,9 @@ class CalendarWidget extends StatelessWidget {
                   label: Text('-'),
                   onPressed: () {
                     if (_selectedAppointment != null) {
-                      _events.appointments!.removeAt(
-                          _events.appointments!.indexOf(_selectedAppointment));
-                      _events.notifyListeners(CalendarDataSourceAction.remove,
+                      events.appointments!.removeAt(
+                          events.appointments!.indexOf(_selectedAppointment));
+                      events.notifyListeners(CalendarDataSourceAction.remove,
                           <Appointment>[]..add(_selectedAppointment));
                     } else {
                       print('bite');
@@ -446,30 +576,44 @@ class CalendarWidget extends StatelessWidget {
                   backgroundColor: Colors.black,
                   heroTag: 'bouton3',
                   label: Text("Synchronize"),
-                  onPressed: () {
+                  onPressed: () async {
+                    writeFile = "";
                     if (envoiBT != "1") {
                       envoiBT = "1";
                     }
                     if (strength.length > 0 &&
                         strength[0] != null &&
-                        _events.appointments!.length > 0 &&
-                        _events.appointments![0] != null) {
-                      for (int i = 0; i < _events.appointments!.length; i++) {
-                        envoiBT += _events.appointments![i].startTime
+                        events.appointments!.length > 0 &&
+                        events.appointments![0] != null) {
+                      for (int i = 0; i < events.appointments!.length; i++) {
+                        envoiBT += events.appointments![i].startTime
                             .difference(DateTime.now())
                             .inMilliseconds
                             .toString();
                         envoiBT += '.';
 
-                        envoiBT += _events.appointments![i].endTime
-                            .difference(_events.appointments![i].startTime)
+                        envoiBT += events.appointments![i].endTime
+                            .difference(events.appointments![i].startTime)
                             .inMilliseconds
                             .toString();
                         envoiBT += '.';
 
                         envoiBT += strength[i] + ';';
+
+                        /////////////////////////////////////
+                        ///
+                        writeFile += DateFormat('yyyy-MM-dd – kk:mm')
+                                .format(events.appointments![i].startTime) +
+                            ".";
+                        writeFile += DateFormat('yyyy-MM-dd – kk:mm')
+                                .format(events.appointments![i].endTime) +
+                            ".";
+                        writeFile += strength[i] + ".";
+                        writeFile += events.appointments![i].subject + ";";
                       }
                     }
+                    await _write(writeFile);
+                    debugPrint(await _read());
                     for (fb.BluetoothService s in services) {
                       for (fb.BluetoothCharacteristic c in s.characteristics) {
                         if (c.properties.write) {
@@ -530,7 +674,7 @@ class CalendarWidget extends StatelessWidget {
                 DateTime.now().day, 23, 59, 59),
             showDatePickerButton: false,
             controller: _controller,
-            dataSource: _events,
+            dataSource: events,
             todayHighlightColor: Colors.black,
             onTap: calendarTapped,
           )),
