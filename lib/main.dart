@@ -50,6 +50,7 @@ class MenuPrincipal extends StatefulWidget {
 class _MenuPrincipalState extends State<MenuPrincipal> {
   List<fb.BluetoothDevice> _connectedDevice = <fb.BluetoothDevice>[];
   List<fb.BluetoothService> services = <fb.BluetoothService>[];
+  List<String> strength = <String>[];
   bool connected = false;
   @override
   Widget build(BuildContext context) {
@@ -86,15 +87,93 @@ class _MenuPrincipalState extends State<MenuPrincipal> {
                       label: Text('Calendar Programmation'),
                       backgroundColor: Colors.black,
                       heroTag: 'bouton1',
-                      onPressed: () {
+                      onPressed: () async {
                         if (connected == true) {
+                          List<Appointment> ds = <Appointment>[];
+                          String data = await _read();
+                          DateTime start = DateTime.now();
+                          DateTime end = DateTime.now();
+                          strength = <String>[];
+                          String subject = "";
+                          String value = "";
+                          bool tdone = false;
+                          Color couleur = Colors.black;
+                          int y = 1;
+                          for (int i = 0; i < data.length; i++) {
+                            if (data[i] != "." && data[i] != ";") {
+                              if (y == 1 || y == 2) {
+                                /*if (data[i] == ":") {
+                            value += "T";
+                          } else*/
+                                if (data[i] == " " && tdone == false) {
+                                  value += "T";
+                                  tdone = true;
+                                } else if (data[i] == " " && tdone == true) {
+                                } else if (data[i] == "–") {
+                                } else {
+                                  value += data[i];
+                                }
+                              } else {
+                                value += data[i];
+                              }
+                            }
+                            if (data[i] == ".") {
+                              switch (y) {
+                                case 1:
+                                  {
+                                    start = DateTime.parse(value);
+                                  }
+                                  break;
+                                case 2:
+                                  {
+                                    end = DateTime.parse(value);
+                                  }
+                                  break;
+                                case 3:
+                                  {
+                                    strength.add(value);
+                                  }
+                                  break;
+                              }
+                              value = "";
+                              y += 1;
+                              tdone = false;
+                            }
+                            if (data[i] == ";") {
+                              subject = value;
+                              if (value.contains("Peppermint")) {
+                                couleur = Colors.green;
+                              } else if (subject.contains("Lavender")) {
+                                couleur = Colors.purple;
+                              } else if (subject.contains("Orange")) {
+                                couleur = Colors.orange;
+                              } else if (subject.contains("Lemon")) {
+                                couleur = Colors.yellow;
+                              }
+
+                              value = "";
+                              y = 1;
+
+                              Appointment z = Appointment(
+                                  startTime: start,
+                                  endTime: end,
+                                  subject: subject,
+                                  color: couleur);
+                              if (start.day == DateTime.now().day &&
+                                  end.day == DateTime.now().day) {
+                                ds.add(z);
+                              }
+                            }
+                          }
+                          //events = DataSource(ds);
+
                           Navigator.push(
                               context,
                               MaterialPageRoute(
                                   builder: (context) => CalendarWidget(
                                       device: _connectedDevice,
                                       services: services,
-                                      events: DataSource(<Appointment>[]))));
+                                      events: DataSource(ds))));
                         } else {
                           showDialog(
                               context: context,
@@ -425,91 +504,30 @@ class CalendarWidget extends StatelessWidget {
                 IconButton(
                     padding: const EdgeInsets.fromLTRB(30, 0, 5, 0),
                     icon: const Icon(
-                      Icons.download,
+                      Icons.save,
                       color: Colors.white,
                     ),
                     onPressed: () async {
-                      List<Appointment> ds = <Appointment>[];
-                      String data = await _read();
-                      DateTime start = DateTime.now();
-                      DateTime end = DateTime.now();
-                      strength = <String>[];
-                      String subject = "";
-                      String value = "";
-                      bool tdone = false;
-                      Color couleur = Colors.black;
-                      int y = 1;
-                      for (int i = 0; i < data.length; i++) {
-                        if (data[i] != "." && data[i] != ";") {
-                          if (y == 1 || y == 2) {
-                            /*if (data[i] == ":") {
-                            value += "T";
-                          } else*/
-                            if (data[i] == " " && tdone == false) {
-                              value += "T";
-                              tdone = true;
-                            } else if (data[i] == " " && tdone == true) {
-                            } else if (data[i] == "–") {
-                            } else {
-                              value += data[i];
-                            }
-                          } else {
-                            value += data[i];
-                          }
-                        }
-                        if (data[i] == ".") {
-                          switch (y) {
-                            case 1:
-                              {
-                                start = DateTime.parse(value);
-                              }
-                              break;
-                            case 2:
-                              {
-                                end = DateTime.parse(value);
-                              }
-                              break;
-                            case 3:
-                              {
-                                strength.add(value);
-                              }
-                              break;
-                          }
-                          value = "";
-                          y += 1;
-                          tdone = false;
-                        }
-                        if (data[i] == ";") {
-                          subject = value;
-                          if (value.contains("Peppermint")) {
-                            couleur = Colors.green;
-                          } else if (subject.contains("Lavender")) {
-                            couleur = Colors.purple;
-                          } else if (subject.contains("Orange")) {
-                            couleur = Colors.orange;
-                          } else if (subject.contains("Lemon")) {
-                            couleur = Colors.yellow;
-                          }
-
-                          value = "";
-                          y = 1;
-
-                          Appointment z = Appointment(
-                              startTime: start,
-                              endTime: end,
-                              subject: subject,
-                              color: couleur);
-                          ds.add(z);
+                      writeFile = "";
+                      if (strength.length > 0 &&
+                          strength[0] != null &&
+                          events.appointments!.length > 0 &&
+                          events.appointments![0] != null) {
+                        for (int i = 0; i < events.appointments!.length; i++) {
+                          /////////////////////////////////////
+                          ///
+                          writeFile += DateFormat('yyyy-MM-dd – kk:mm')
+                                  .format(events.appointments![i].startTime) +
+                              ".";
+                          writeFile += DateFormat('yyyy-MM-dd – kk:mm')
+                                  .format(events.appointments![i].endTime) +
+                              ".";
+                          writeFile += strength[i] + ".";
+                          writeFile += events.appointments![i].subject + ";";
                         }
                       }
-                      events = DataSource(ds);
-                      Navigator.pushReplacement(
-                          context,
-                          MaterialPageRoute(
-                              builder: (BuildContext context) => CalendarWidget(
-                                  device: device,
-                                  services: services,
-                                  events: events)));
+                      await _write(writeFile);
+                      debugPrint(await _read());
                     }),
               ])),
           floatingActionButton: Stack(
