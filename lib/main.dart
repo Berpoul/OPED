@@ -52,8 +52,10 @@ class _MenuPrincipalState extends State<MenuPrincipal> {
   List<fb.BluetoothService> services = <fb.BluetoothService>[];
   List<String> strength = <String>[];
   bool connected = false;
+  String coTxt = "ouhou";
   @override
   Widget build(BuildContext context) {
+    coTxt = _getCoText(connected, _connectedDevice);
     return MaterialApp(
         debugShowCheckedModeBanner: false,
         home: Scaffold(
@@ -81,10 +83,10 @@ class _MenuPrincipalState extends State<MenuPrincipal> {
             floatingActionButton: Stack(
               children: [
                 Positioned(
-                  left: 100,
-                  top: 400,
+                  left: 107,
+                  top: 300,
                   child: FloatingActionButton.extended(
-                      label: Text('Calendar Programmation'),
+                      label: Text('Calendar Programming'),
                       backgroundColor: Colors.black,
                       heroTag: 'bouton1',
                       onPressed: () async {
@@ -184,10 +186,10 @@ class _MenuPrincipalState extends State<MenuPrincipal> {
                       }),
                 ),
                 Positioned(
-                  left: 107,
-                  bottom: 300,
+                  left: 112,
+                  top: 425,
                   child: FloatingActionButton.extended(
-                    label: Text('Manual Programmation'),
+                    label: Text('Manual Programming'),
                     backgroundColor: Colors.black,
                     heroTag: 'bouton2',
                     onPressed: () {
@@ -210,7 +212,7 @@ class _MenuPrincipalState extends State<MenuPrincipal> {
                 ),
                 Positioned(
                   left: 107,
-                  bottom: 200,
+                  top: 550,
                   child: FloatingActionButton.extended(
                     label: Text('Connect to your device'),
                     backgroundColor: Colors.black,
@@ -234,18 +236,87 @@ class _MenuPrincipalState extends State<MenuPrincipal> {
                         if (_connectedDevice.length != 0) {
                           _connectedDevice[0].disconnect();
                           _connectedDevice.clear();
+
                           connected = false;
-                          showDialog(
+                          coTxt = _getCoText(connected, _connectedDevice);
+                          /*showDialog(
                               context: context,
                               builder: ((context) => const AlertDialog(
-                                  content: Text('Déconnecté'))));
+                                  content: Text('Déconnecté'))));*/
+                          setState(() {});
                         }
                       }
                     },
                   ),
-                )
+                ),
+                Positioned(
+                  left: 180,
+                  top: 675,
+                  child: FloatingActionButton.extended(
+                    label: Text('STOP'),
+                    backgroundColor: Colors.black,
+                    heroTag: 'bouton4',
+                    onPressed: () {
+                      if (connected == true) {
+                        for (fb.BluetoothService s in services) {
+                          for (fb.BluetoothCharacteristic c
+                              in s.characteristics) {
+                            if (c.properties.write) {
+                              c.write(utf8.encode("xxx"));
+                              debugPrint("xxx");
+                            }
+                          }
+                        }
+
+                        showDialog(
+                            context: context,
+                            builder: ((context) => const AlertDialog(
+                                content: Text(
+                                    'All diffusions have been stopped.'))));
+                      } else {
+                        showDialog(
+                            context: context,
+                            builder: ((context) => const AlertDialog(
+                                content: Text(
+                                    'You should connect to a device first.'))));
+                      }
+                    },
+                  ),
+                ),
+                _makeCoText(coTxt, connected)
               ],
             )));
+  }
+}
+
+_getCoText(bool connected, List<fb.BluetoothDevice> device) {
+  if (connected == true) {
+    return "Connected to " + device[0].name;
+  } else {
+    debugPrint("ouloulou");
+    return "Not connected.";
+  }
+}
+
+_makeCoText(String coTxt, bool connected) {
+  if (connected == true) {
+    return Positioned(
+      top: 870,
+      left: 115,
+      child: Text(
+        coTxt,
+        style: TextStyle(color: Colors.grey),
+      ),
+    );
+  } else {
+    return Positioned(
+      top: 870,
+      left: 168,
+      child: Text(
+        coTxt,
+        style: TextStyle(color: Colors.grey),
+      ),
+    );
   }
 }
 
@@ -307,7 +378,7 @@ class _ModeManuelState extends State<ModeManuel> {
             home: Scaffold(
                 appBar: AppBar(
                     backgroundColor: Colors.black,
-                    title: Text('Manual Programmation'),
+                    title: Text('Manual Programming'),
                     leading: IconButton(
                       padding: const EdgeInsets.fromLTRB(5, 0, 5, 0),
                       icon: const Icon(
@@ -449,6 +520,13 @@ _write(String text) async {
   await file.writeAsString(text);
 }
 
+_emptyfile() async {
+  final Directory directory = await getApplicationDocumentsDirectory();
+  final File file = File('${directory.path}/my_file.txt');
+  await file.delete();
+  await file.writeAsString("");
+}
+
 Future<String> _read() async {
   String txt = "";
   try {
@@ -488,7 +566,7 @@ class CalendarWidget extends StatelessWidget {
               backgroundColor: Colors.black,
               title: Row(children: <Widget>[
                 IconButton(
-                  padding: const EdgeInsets.fromLTRB(5, 0, 30, 0),
+                  padding: const EdgeInsets.fromLTRB(0, 0, 90, 0),
                   icon: const Icon(
                     Icons.arrow_back_ios_new_rounded,
                     color: Colors.white,
@@ -498,11 +576,20 @@ class CalendarWidget extends StatelessWidget {
                   },
                 ),
                 const Text(
-                  'Calendar Programmation',
+                  'Your Calendar',
                   textAlign: TextAlign.center,
                 ),
                 IconButton(
-                    padding: const EdgeInsets.fromLTRB(30, 0, 5, 0),
+                    onPressed: () async {
+                      _emptyfile();
+                    },
+                    padding: const EdgeInsets.fromLTRB(30, 0, 15, 0),
+                    icon: const Icon(
+                      Icons.delete,
+                      color: Colors.white,
+                    )),
+                IconButton(
+                    padding: const EdgeInsets.fromLTRB(0, 0, 5, 0),
                     icon: const Icon(
                       Icons.save,
                       color: Colors.white,
@@ -595,6 +682,7 @@ class CalendarWidget extends StatelessWidget {
                   heroTag: 'bouton3',
                   label: Text("Synchronize"),
                   onPressed: () async {
+                    debugPrint("c'est ici");
                     writeFile = "";
                     if (envoiBT != "1") {
                       envoiBT = "1";
@@ -1024,6 +1112,7 @@ class _SecondRouteState extends State<SecondRoute> {
                                             time != _startTime) {
                                           setState(() {
                                             _startTime = time;
+                                            //_endTime = time;
                                             final Duration difference =
                                                 _endDate.difference(_startDate);
                                             _startDate = DateTime(
@@ -1033,11 +1122,18 @@ class _SecondRouteState extends State<SecondRoute> {
                                                 _startTime.hour,
                                                 _startTime.minute,
                                                 0);
-                                            /*_endDate =
-                                                _startDate.add(difference);*/
-                                            _endTime = TimeOfDay(
-                                                hour: _endDate.hour,
-                                                minute: _endDate.minute);
+                                            _endDate =
+                                                _startDate.add(difference);
+                                            /*if (_startTime.hour >
+                                                    _endTime.hour ||
+                                                (_startTime.hour <
+                                                        _endTime.hour &&
+                                                    _startTime.minute >
+                                                        _endTime.minute)) {
+                                              setState(() {
+                                                _endTime = _startTime;
+                                              });
+                                            }*/
                                           });
                                         }
                                       })),
