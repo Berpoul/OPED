@@ -22,9 +22,23 @@ class Historic extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text("Manual Diffusions Historic"),
-        backgroundColor: Colors.black,
-      ),
+          backgroundColor: Colors.black,
+          title: Row(children: <Widget>[
+            const Text(
+              'Manual Diffusions Historic',
+              textAlign: TextAlign.center,
+            ),
+            IconButton(
+                padding: const EdgeInsets.fromLTRB(15, 0, 10, 0),
+                icon: const Icon(
+                  Icons.delete,
+                  color: Colors.white,
+                ),
+                onPressed: () async {
+                  pre.setStringList("historic", []);
+                  (context as Element).markNeedsBuild();
+                }),
+          ])),
       body: history(title: 'Your historic', pre: pre),
     );
   }

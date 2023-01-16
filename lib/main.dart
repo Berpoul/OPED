@@ -407,7 +407,8 @@ class _ModeManuelState extends State<ModeManuel> {
                             SharedPreferences pre =
                                 await SharedPreferences.getInstance();
                             //await pre.remove('historic');
-                            //pre.setStringList("historic", []);
+                            //pre.setStringList(
+                            //    "historic", ["ayaya", "ayayayaaaa", "aah"]);
 
                             Navigator.push(
                                 context,
