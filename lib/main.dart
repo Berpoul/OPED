@@ -14,6 +14,8 @@ import 'DevicesList.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 import 'dart:convert';
+import 'history.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'dart:convert' show utf8;
 
@@ -92,7 +94,7 @@ class _MenuPrincipalState extends State<MenuPrincipal> {
                       onPressed: () async {
                         if (connected == true) {
                           List<Appointment> ds = <Appointment>[];
-                          String data = await _read();
+                          String data = await _readMyFile();
                           DateTime start = DateTime.now();
                           DateTime end = DateTime.now();
                           strength = <String>[];
@@ -357,6 +359,8 @@ class _ModeManuelState extends State<ModeManuel> {
   int compteur = 0;
   bool envoi = false;
   Duration diff = Duration();
+  String hist = "";
+  String time = "";
 
   @override
   void initState() {
@@ -378,17 +382,39 @@ class _ModeManuelState extends State<ModeManuel> {
             home: Scaffold(
                 appBar: AppBar(
                     backgroundColor: Colors.black,
-                    title: Text('Manual Programming'),
-                    leading: IconButton(
-                      padding: const EdgeInsets.fromLTRB(5, 0, 5, 0),
-                      icon: const Icon(
-                        Icons.arrow_back_ios_new_rounded,
-                        color: Colors.white,
+                    title: Row(children: <Widget>[
+                      IconButton(
+                        padding: const EdgeInsets.fromLTRB(0, 0, 50, 0),
+                        icon: const Icon(
+                          Icons.arrow_back_ios_new_rounded,
+                          color: Colors.white,
+                        ),
+                        onPressed: () {
+                          Navigator.pop(context);
+                        },
                       ),
-                      onPressed: () {
-                        Navigator.pop(context);
-                      },
-                    )),
+                      const Text(
+                        'Manual Programming',
+                        textAlign: TextAlign.center,
+                      ),
+                      IconButton(
+                          padding: const EdgeInsets.fromLTRB(45, 0, 10, 0),
+                          icon: const Icon(
+                            Icons.history,
+                            color: Colors.white,
+                          ),
+                          onPressed: () async {
+                            SharedPreferences pre =
+                                await SharedPreferences.getInstance();
+                            //await pre.remove('historic');
+                            //pre.setStringList("historic", []);
+
+                            Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                    builder: (context) => Historic(pre: pre)));
+                          }),
+                    ])),
                 body: Center(
                     child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -466,7 +492,7 @@ class _ModeManuelState extends State<ModeManuel> {
                     ),
                     SizedBox(height: 100),
                     FloatingActionButton.extended(
-                      onPressed: () {
+                      onPressed: () async {
                         setState(() {
                           CountdownTimer(
                             controller: controller,
@@ -488,6 +514,35 @@ class _ModeManuelState extends State<ModeManuel> {
                             }
                           }
                         }
+                        var diff2 = diff.inSeconds;
+                        if (diff.inHours > 0) {
+                          time += diff.inHours.toString() + " hours ";
+                          diff2 -= diff.inHours * 3600;
+                        }
+                        if (diff2 >= 60) {
+                          time += (diff2 ~/ 60).toString() + " minutes ";
+                          diff2 = diff2 % 60;
+                        }
+                        if (diff2 > 0) {
+                          time += diff2.toString() + " seconds ";
+                        }
+                        SharedPreferences pre =
+                            await SharedPreferences.getInstance();
+                        List<String> historic =
+                            pre.getStringList("historic") ?? [];
+                        hist +=
+                            "${DateTime.now().day.toString()}/${DateTime.now().month.toString()}/${DateTime.now().year.toString()}" +
+                                "\n";
+                        hist += time + "\n";
+                        hist += dropdownValue.toString() + "\n";
+                        hist += values[rating];
+                        historic.add(hist);
+                        pre.setStringList("historic", historic);
+                        hist = "";
+                        time = "";
+
+                        //debugPrint(hist);
+                        //_writeHistory(hist);
                       },
                       label: Text('START'),
                       backgroundColor: Colors.black87,
@@ -513,25 +568,51 @@ CountdownTimer lancement(controller, DateTime _endDate) {
   );
 }
 
-_write(String text) async {
+_writeMyFile(String text) async {
   final Directory directory = await getApplicationDocumentsDirectory();
   final File file = File('${directory.path}/my_file.txt');
   await file.delete();
   await file.writeAsString(text);
 }
 
-_emptyfile() async {
+_emptyMyfile() async {
   final Directory directory = await getApplicationDocumentsDirectory();
   final File file = File('${directory.path}/my_file.txt');
   await file.delete();
   await file.writeAsString("");
 }
 
-Future<String> _read() async {
+Future<String> _readMyFile() async {
   String txt = "";
   try {
     final Directory directory = await getApplicationDocumentsDirectory();
     final File file = File('${directory.path}/my_file.txt');
+    txt = await file.readAsString();
+  } catch (e) {
+    print("Couldn't read file");
+  }
+  return txt;
+}
+
+_writeHistory(String text) async {
+  final Directory directory = await getApplicationDocumentsDirectory();
+  final File file = File('${directory.path}/history.txt');
+  await file.delete();
+  await file.writeAsString(text);
+}
+
+_emptyHistory() async {
+  final Directory directory = await getApplicationDocumentsDirectory();
+  final File file = File('${directory.path}/history.txt');
+  await file.delete();
+  await file.writeAsString("");
+}
+
+Future<String> _readHistory() async {
+  String txt = "";
+  try {
+    final Directory directory = await getApplicationDocumentsDirectory();
+    final File file = File('${directory.path}/history.txt');
     txt = await file.readAsString();
   } catch (e) {
     print("Couldn't read file");
@@ -581,7 +662,7 @@ class CalendarWidget extends StatelessWidget {
                 ),
                 IconButton(
                     onPressed: () async {
-                      _emptyfile();
+                      _emptyMyfile();
                     },
                     padding: const EdgeInsets.fromLTRB(30, 0, 15, 0),
                     icon: const Icon(
@@ -613,8 +694,8 @@ class CalendarWidget extends StatelessWidget {
                           writeFile += events.appointments![i].subject + ";";
                         }
                       }
-                      await _write(writeFile);
-                      debugPrint(await _read());
+                      await _writeMyFile(writeFile);
+                      debugPrint(await _readMyFile());
                     }),
               ])),
           floatingActionButton: Stack(
@@ -718,8 +799,8 @@ class CalendarWidget extends StatelessWidget {
                         writeFile += events.appointments![i].subject + ";";
                       }
                     }
-                    await _write(writeFile);
-                    debugPrint(await _read());
+                    await _writeMyFile(writeFile);
+                    debugPrint(await _readMyFile());
                     for (fb.BluetoothService s in services) {
                       for (fb.BluetoothCharacteristic c in s.characteristics) {
                         if (c.properties.write) {
